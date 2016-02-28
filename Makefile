@@ -1,5 +1,5 @@
-BIN=PWM
-OBJS=PWM.o lcd.o
+BIN=main
+OBJS=main.o
 MCU=atmega328p#48p#atmega328
 MCP=m328p#48p#m328
 CLK=4000000

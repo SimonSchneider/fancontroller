@@ -38,10 +38,6 @@ void init(void)
 	//set clock speed to 4 MHz
 	clock_prescale_set(clock_div_2);
 
-	//init LCD screen
-	lcd_init(LCD_DISP_ON);
-	lcd_clrscr();
-
 	//IN	PC4 TempSensor 2, PC5 TempSensor1
 	PORTC	= (1 << PC4)	| (1 << PC5);
 	//OUT	PB0 PowFan3	PB1 PWMFan3	PB2 PowFan4
@@ -75,14 +71,14 @@ void init(void)
 	//Timer2 PWM setup @25kHz for Fan5+6
 	TCCR2A	= (1 << COM2A1)	| (0 << COM2A0)
 		| (1 << COM2B1)	| (0 << COM2B0)
-		| (1 << WGM1)	| (1 << WGM0);
-	TCCR2B	= (1 << WGM2)
+		| (1 << WGM21)	| (1 << WGM20);
+	TCCR2B	= (1 << WGM22)
 		| (0 << CS22)	| (0 << CS21)	| (1 << CS20);
 	OCR2A	= 160;
 	OCR2B	= 1;	//PD3
 }
 
-void set_power(uint8_t a)
+void set_power(uint8_t a[])
 {
 	if(a[0] == 0)
 		PORTB &= ~(1 << PB6);
@@ -124,23 +120,35 @@ void test(void)
 		if(pwm3 > 160)
 			pwm3 = 0;
 		if(pwm4 > 160)
-			pwm3 = 0;
+			pwm4 = 0;
 		if(pwm56 > 160)
-			pwm3 = 0;
+			pwm56 = 0;
 		OCR0B = pwm12;
 		OCR1A = pwm3;
 		OCR1B = pwm4;
 		OCR2B = pwm56;
 		set_power(pow);
-		_delay_ms(500);
-		if(pwm12 % 2)
-			pow = {0, 0, 0, 0, 0, 0};
-		else
-			pow = {1, 1, 1, 1, 1, 1};
+		_delay_ms(100);
+		if(pow[0] == 1) {
+			pow[0] = 0;
+			pow[1] = 0;
+			pow[2] = 0;
+			pow[3] = 0;
+			pow[4] = 0;
+			pow[5] = 0;
+		} else {
+			pow[0] = 1;
+			pow[1] = 1;
+			pow[2] = 1;
+			pow[3] = 1;
+			pow[4] = 1;
+			pow[5] = 1;
+		}
 		pwm12++;
 		pwm3++;
 		pwm4++;
 		pwm56++;
+	}
 }
 
 int main(void)
