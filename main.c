@@ -32,6 +32,8 @@ OC0A	PD6|12	17|PB3	MOSI	LCD_D5 (11)
 #include <stdio.h>
 #include <util/delay.h>
 #include <inttypes.h>
+static int8_t cpuM = 0;
+static int8_t hddM = 0;
 
 void init(void)
 {
@@ -78,81 +80,184 @@ void init(void)
 	OCR2B	= 1;	//PD3
 }
 
-void set_power(uint8_t a[])
+uint8_t get_temp_cpu()
 {
-	if(a[0] == 0)
-		PORTB &= ~(1 << PB6);
-	else
-		PORTB |= (1 << PB6);
-	if(a[1] == 0)
-		PORTD &= ~(1 << PD7);
-	else
-		PORTD |= (1 << PD7);
-	if(a[2] == 0)
-		PORTB &= ~(1 << PB0);
-	else
-		PORTB |= (1 << PB0);
-	if(a[3] == 0)
-		PORTD &= ~(1 << PD2);
-	else
-		PORTD |= (1 << PD2);
-	if(a[4] == 0)
-		PORTD &= ~(1 << PD1);
-	else
-		PORTD |= (1 << PD1);
-	if(a[5] == 0)
-		PORTD &= ~(1 << PD0);
-	else
-		PORTD |= (1 << PD0);
+	return 25;
 }
 
-void test(void)
+uint8_t get_temp_hdd()
 {
-	uint8_t pwm12	= 0;
-	uint8_t pwm3	= 0;
-	uint8_t pwm4	= 0;
-	uint8_t pwm56	= 0;
-	uint8_t pow[6]	= {0, 0, 0, 0 ,0, 0};
+	return 25;
+}
 
+void update_chamber_hdd(uint8_t temp) {
+	/* hddM range	buff	fan1	fan2	fan3
+	 * 0	0<25	0	0	0
+	 * 1	20-30	0	0	1
+	 * 2	25-35	0	1	1
+	 * 3	30-40	1	1	1
+	 * 3	35<	PWM	PWM	PWM
+	 *
+	 */
+	int8_t pwm = 0;
+	switch(hddM) {
+	case 0:
+		PORTD &= ~(1 << PD0); //Fan6
+		PORTD &= ~(1 << PD1); //Fan5
+		PORTD &= ~(1 << PD2); //Fan4
+		pwm = 0;
+		if(temp >= 25)
+			hddM = 1;
+		break;
+	case 1:
+		PORTD |=  (1 << PD0); //Fan6
+		PORTD &= ~(1 << PD1); //Fan5
+		PORTD &= ~(1 << PD2); //Fan4
+		pwm = 0;
+		if(temp <= 20)
+			hddM = 0;
+		else if(temp >= 30)
+			hddM = 2;
+		break;
+	case 2:
+		PORTD |=  (1 << PD0); //Fan6
+		PORTD |=  (1 << PD1); //Fan5
+		PORTD &= ~(1 << PD2); //Fan4
+		pwm = 0;
+		if(temp <= 25)
+			hddM = 1;
+		else if(temp >= 35)
+			hddM = 3;
+		break;
+	case 3:
+		PORTD |=  (1 << PD0); //Fan6
+		PORTD |=  (1 << PD1); //Fan5
+		PORTD |=  (1 << PD2); //Fan4
+		pwm = 0;
+		if(temp <= 30)
+			hddM = 2;
+		if(temp >= 40)
+			hddM = 4;
+		break;
+	case 4:
+		PORTD |=  (1 << PD0); //Fan6
+		PORTD |=  (1 << PD1); //Fan5
+		PORTD |=  (1 << PD2); //Fan4
+		pwm = (160/(100-40))*(temp-40);
+		if(temp <= 35)
+			hddM = 3;
+		break;
+	default:
+		hddM=3;
+		break;
+	}
+	if(pwm<0)
+		pwm = 0;
+	if(pwm>160)
+		pwm = 160;
+	OCR1B = pwm;
+	OCR2B = pwm;
+}
+
+void update_chamber_cpu(uint8_t temp) {
+	/* cpuM range	buff	fan1	fan2	fan3
+	 * 0	0<35	0	0	0
+	 * 1	30-40	0	0	1
+	 * 2	35-45	0	1	1
+	 * 3	40-50	1	1	1
+	 * 3	45<	PWM	PWM	PWM
+	 *
+	 */
+	int8_t pwm = 0;
+	switch(cpuM) {
+	case 0:
+		PORTB &= ~(1 << PB0); //Fan3
+		PORTD &= ~(1 << PD7); //Fan2
+		PORTB &= ~(1 << PB6); //Fan1
+		pwm = 0;
+		if(temp >= 35)
+			cpuM = 1;
+		break;
+	case 1:
+		PORTB |=  (1 << PB0); //Fan3
+		PORTD &= ~(1 << PD7); //Fan2
+		PORTB &= ~(1 << PB6); //Fan1
+		pwm = 0;
+		if(temp <= 30)
+			cpuM = 0;
+		else if(temp >= 40)
+			cpuM = 2;
+		break;
+	case 2:
+		PORTB |=  (1 << PB0); //Fan3
+		PORTD |=  (1 << PD7); //Fan2
+		PORTB &= ~(1 << PB6); //Fan1
+		pwm = 0;
+		if(temp <= 35)
+			cpuM = 1;
+		else if(temp >= 45)
+			cpuM = 3;
+		break;
+	case 3:
+		PORTB |=  (1 << PB0); //Fan3
+		PORTD |=  (1 << PD7); //Fan2
+		PORTB |=  (1 << PB6); //Fan1
+		pwm = 0;
+		if(temp <= 40)
+			cpuM = 2;
+		if(temp >= 50)
+			cpuM = 4;
+		break;
+	case 4:
+		PORTB |=  (1 << PB0); //Fan3
+		PORTD |=  (1 << PD7); //Fan2
+		PORTB |=  (1 << PB6); //Fan1
+		//160/(100-45)*(temp-45)
+		pwm = (160/(100-50))*(temp-50);
+		//pwm = 2.909*temp-130.909;
+		if(temp <= 45)
+			cpuM = 3;
+		break;
+	default:
+		cpuM=3;
+		break;
+	}
+	if(pwm<0)
+		pwm = 0;
+	if(pwm>160)
+		pwm = 160;
+	OCR0B = pwm;
+	OCR1A = pwm;
+}
+
+void test_temp()
+{
+	uint8_t temp=15;
 	while(1) {
-		if(pwm12 > 160)
-			pwm12 = 0;
-		if(pwm3 > 160)
-			pwm3 = 0;
-		if(pwm4 > 160)
-			pwm4 = 0;
-		if(pwm56 > 160)
-			pwm56 = 0;
-		OCR0B = pwm12;
-		OCR1A = pwm3;
-		OCR1B = pwm4;
-		OCR2B = pwm56;
-		set_power(pow);
-		_delay_ms(100);
-		if(pow[0] == 1) {
-			pow[0] = 0;
-			pow[1] = 0;
-			pow[2] = 0;
-			pow[3] = 0;
-			pow[4] = 0;
-			pow[5] = 0;
-		} else {
-			pow[0] = 1;
-			pow[1] = 1;
-			pow[2] = 1;
-			pow[3] = 1;
-			pow[4] = 1;
-			pow[5] = 1;
+		for(temp = 15; temp < 60; temp++) {
+			update_chamber_hdd(temp);
+			update_chamber_cpu(temp);
+			_delay_ms(300);
 		}
-		pwm12++;
-		pwm3++;
-		pwm4++;
-		pwm56++;
+		for(temp = 60; temp > 15; temp--) {
+			update_chamber_hdd(temp);
+			update_chamber_cpu(temp);
+			_delay_ms(300);
+		}
 	}
 }
 
 int main(void)
 {
+	uint8_t temp;
 	init();
-	test();
+	test_temp();
+	while(1) {
+		temp = get_temp_hdd();
+		update_chamber_hdd(temp);
+		temp = get_temp_cpu();
+		update_chamber_cpu();
+		_delay_ms(1000);
+	}
+	return 1;
 }
