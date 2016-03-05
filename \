@@ -40,14 +40,14 @@ void init(void)
 	//set clock speed to 4 MHz
 	clock_prescale_set(clock_div_2);
 
-	//OUT	PB0 PowFan1	PB1 PWMFan3	PB2 PWMFan4
-	//	PB6 PowFan4	PB1 PowFan3;
+	//OUT	PB0 PowFan3	PB1 PWMFan3	PB2 PowFan4
+	//	PB6 PowFan1
 	DDRB	= (1 << PB0)	| (1 << PB1)	| (1 << PB2)
-		| (1 << PB6)	| (1 << PB7);
-	//OUT	PD2 PowFan6	PD3 PWMFan5+6	PD4 PowFan5
-	//	PD5 PWMFan1+2	PD7 PowFan2
-	DDRD	= (1 << PD2)	| (1 << PD3)	| (1 << PD4)
-		| (1 << PD5)	| (1 << PD7);
+		| (1 << PB6);
+	//OUT	PD0 PowFan6	PD1 PowFan5	PD2 PowFan4
+	//	PD3 PWMFan5+6	PD5 PWMFan1+2	PD7 PowFan2
+	DDRD	= (1 << PD0)	| (1 << PD1)	| (1 << PD2)
+		| (1 << PD3)	| (1 << PD5)	| (1 << PD7);
 
 	//Set up Analog read
 	ADMUX	= (0 << REFS1)	| (0 << REFS0)	| (0 << ADLAR)
@@ -56,8 +56,8 @@ void init(void)
 		| (0 << ADPS2)	| (1 << ADPS1)	| (1 << ADPS0);
 
 	//Timer0 PWM setup @25kHz for Fan1+2
-	TCCR0A	= (0 << COM0A1)	| (0 << COM0A0)		//(1 << COM0A1)	| (0 << COM0A0)
-		| (1 << COM0B1) | (1 << COM0B0)		//(1 << COM0B1) | (0 << COM0B0)
+	TCCR0A	= (1 << COM0A1)	| (0 << COM0A0)
+		| (1 << COM0B1) | (0 << COM0B0)
 		| (1 << WGM01)	| (1 << WGM00);
 	TCCR0B	= (1 << WGM02)
 		| (0 << CS02)	| (0 << CS01)	| (1 << CS00);
@@ -88,11 +88,11 @@ uint8_t get_temp_cpu()
 {
 	uint8_t temp;
 	ADMUX	= (0 << REFS1)	| (0 << REFS0)	| (0 << ADLAR)
-		| (0 << MUX3)	| (0 << MUX2)	| (1 << MUX1)	| (1 << MUX0);
+		| (0 << MUX3)	| (1 << MUX2)	| (0 << MUX1)	| (1 << MUX0);
 	_delay_ms(50);
 	ADCSRA	|= (1 << ADSC);
 	while(ADCSRA & (1 << ADSC));
-	temp = (298.15*ADC/598)-273.15;
+	temp = (298.15*ADC/580)-273.15;
 	return temp;
 }
 
@@ -100,11 +100,11 @@ uint8_t get_temp_hdd()
 {
 	uint8_t temp;
 	ADMUX	= (0 << REFS1)	| (0 << REFS0)	| (0 << ADLAR)
-		| (0 << MUX3)	| (1 << MUX2)	| (0 << MUX1)	| (0 << MUX0);
+		| (0 << MUX3)	| (1 << MUX2)	| (1 << MUX1)	| (0 << MUX0);
 	_delay_ms(50);
 	ADCSRA	|= (1 << ADSC);
 	while(ADCSRA & (1 << ADSC));
-	temp = (298.15*ADC/590)-273.15;
+	temp = (298.15*ADC/580)-273.15;
 	return temp;
 }
 
@@ -120,17 +120,17 @@ void update_chamber_hdd(uint8_t temp) {
 	int8_t pwm = 0;
 	switch(hddM) {
 	case 0:
-		PORTD &= ~(1 << PD2); //Fan6
-		PORTD &= ~(1 << PD4); //Fan5
-		PORTB &= ~(1 << PB6); //Fan4
+		PORTD &= ~(1 << PD0); //Fan6
+		PORTD &= ~(1 << PD1); //Fan5
+		PORTD &= ~(1 << PD2); //Fan4
 		pwm = 0;
 		if(temp >= 25)
 			hddM = 1;
 		break;
 	case 1:
-		PORTD |=  (1 << PD2); //Fan6
-		PORTD &= ~(1 << PD4); //Fan5
-		PORTB &= ~(1 << PB6); //Fan4
+		PORTD |=  (1 << PD0); //Fan6
+		PORTD &= ~(1 << PD1); //Fan5
+		PORTD &= ~(1 << PD2); //Fan4
 		pwm = 0;
 		if(temp <= 20)
 			hddM = 0;
@@ -138,9 +138,9 @@ void update_chamber_hdd(uint8_t temp) {
 			hddM = 2;
 		break;
 	case 2:
-		PORTD |=  (1 << PD2); //Fan6
-		PORTD |=  (1 << PD4); //Fan5
-		PORTB &= ~(1 << PB6); //Fan4
+		PORTD |=  (1 << PD0); //Fan6
+		PORTD |=  (1 << PD1); //Fan5
+		PORTD &= ~(1 << PD2); //Fan4
 		pwm = 0;
 		if(temp <= 25)
 			hddM = 1;
@@ -148,9 +148,9 @@ void update_chamber_hdd(uint8_t temp) {
 			hddM = 3;
 		break;
 	case 3:
-		PORTD |=  (1 << PD2); //Fan6
-		PORTD |=  (1 << PD4); //Fan5
-		PORTB |=  (1 << PB6); //Fan4
+		PORTD |=  (1 << PD0); //Fan6
+		PORTD |=  (1 << PD1); //Fan5
+		PORTD |=  (1 << PD2); //Fan4
 		pwm = 0;
 		if(temp <= 30)
 			hddM = 2;
@@ -158,9 +158,9 @@ void update_chamber_hdd(uint8_t temp) {
 			hddM = 4;
 		break;
 	case 4:
-		PORTD |=  (1 << PD2); //Fan6
-		PORTD |=  (1 << PD4); //Fan5
-		PORTB |=  (1 << PB6); //Fan4
+		PORTD |=  (1 << PD0); //Fan6
+		PORTD |=  (1 << PD1); //Fan5
+		PORTD |=  (1 << PD2); //Fan4
 		pwm = (160/(100-40))*(temp-40);
 		if(temp <= 35)
 			hddM = 3;
@@ -189,17 +189,17 @@ void update_chamber_cpu(uint8_t temp) {
 	int8_t pwm = 0;
 	switch(cpuM) {
 	case 0:
-		PORTB &= ~(1 << PB7); //Fan3
+		PORTB &= ~(1 << PB0); //Fan3
 		PORTD &= ~(1 << PD7); //Fan2
-		PORTB &= ~(1 << PB0); //Fan1
+		PORTB &= ~(1 << PB6); //Fan1
 		pwm = 0;
 		if(temp >= 35)
 			cpuM = 1;
 		break;
 	case 1:
-		PORTB |=  (1 << PB7); //Fan3
+		PORTB |=  (1 << PB0); //Fan3
 		PORTD &= ~(1 << PD7); //Fan2
-		PORTB &= ~(1 << PB0); //Fan1
+		PORTB &= ~(1 << PB6); //Fan1
 		pwm = 0;
 		if(temp <= 30)
 			cpuM = 0;
@@ -207,9 +207,9 @@ void update_chamber_cpu(uint8_t temp) {
 			cpuM = 2;
 		break;
 	case 2:
-		PORTB |=  (1 << PB7); //Fan3
+		PORTB |=  (1 << PB0); //Fan3
 		PORTD |=  (1 << PD7); //Fan2
-		PORTB &= ~(1 << PB0); //Fan1
+		PORTB &= ~(1 << PB6); //Fan1
 		pwm = 0;
 		if(temp <= 35)
 			cpuM = 1;
@@ -217,9 +217,9 @@ void update_chamber_cpu(uint8_t temp) {
 			cpuM = 3;
 		break;
 	case 3:
-		PORTB |=  (1 << PB7); //Fan3
+		PORTB |=  (1 << PB0); //Fan3
 		PORTD |=  (1 << PD7); //Fan2
-		PORTB |=  (1 << PB0); //Fan1
+		PORTB |=  (1 << PB6); //Fan1
 		pwm = 0;
 		if(temp <= 40)
 			cpuM = 2;
@@ -227,9 +227,9 @@ void update_chamber_cpu(uint8_t temp) {
 			cpuM = 4;
 		break;
 	case 4:
-		PORTB |=  (1 << PB7); //Fan3
+		PORTB |=  (1 << PB0); //Fan3
 		PORTD |=  (1 << PD7); //Fan2
-		PORTB |=  (1 << PB0); //Fan1
+		PORTB |=  (1 << PB6); //Fan1
 		//160/(100-45)*(temp-45)
 		pwm = (160/(100-50))*(temp-50);
 		//pwm = 2.909*temp-130.909;
